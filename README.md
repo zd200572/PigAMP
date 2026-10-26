@@ -28,9 +28,7 @@ PigAMP/
 
 ## MAG-Generation
 
-### Three ways to build MAGs
-
-**Method 1: short reads (Illumina)**
+### Complete pipeline (short-read: Illumina)
 
 ```bash
 # 1) QC + host removal + MEGAHIT assembly
@@ -46,7 +44,7 @@ megahit -1 clean.1.fq.gz -2 clean.2.fq.gz --min-contig-len 500 -t 40 -o ./
 perl renamefa.pl ./final.contigs.fa contig.ok.fa
 perl deal_fa.pl -format 3 contig.ok.fa | perl -e 'while(<>){chomp;@a=split; if($a[1] > 10000){$a[1]=10000;} print "$a[0]\t$a[1]\n";}' > contig.ok.fa.chrlist
 
-# 2) Binning
+# 2) Binning with MetaBAT2
 bwa index contig.ok.fa
 samtools faidx contig.ok.fa
 bwa mem -k 32 -t 40 -M contig.ok.fa clean.1.fq.gz clean.2.fq.gz \
@@ -57,16 +55,17 @@ metabat/jgi_summarize_bam_contig_depths --outputDepth sample.depth sample.sort.b
 metabat/metabat2 -t 32 --inFile contig.ok.fa --abdFile sample.depth --outFile ./sample
 ```
 
-**Method 2: long reads (ONT)**
+### Optional: ONT assembly (not connected to binning)
+
+The script also contains an ONT assembly step:
 
 ```bash
 flye --nano-raw ONT-data.fastq.gz --meta -t 80 -o ONT-data
-# then renamefa.pl / deal_fa.pl / 2.binning.sh as above
 ```
 
-**Method 3: shared binning**
-
-All three assembly routes name their output `contig.ok.fa`, so the same `2.binning.sh` applies to every one of them.
+**Note:** This step is not connected to the binning pipeline in the original RMM repository. The output `flye/assembly.fasta` is not used by `2.binning.sh`, which expects `contig.ok.fa` (from MEGAHIT). To use ONT assembly for MAG construction, you would need to either:
+- Rename `flye/assembly.fasta` to `contig.ok.fa` and run `2.binning.sh`, or
+- Combine ONT contigs with MEGAHIT contigs before binning
 
 ### Inputs
 
