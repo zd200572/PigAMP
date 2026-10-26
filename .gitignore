@@ -1,0 +1,32 @@
+# 数据与运行产物
+raw/
+out/
+demo-out/
+*.log
+nohup.out
+
+# 组装/比对中间文件
+*.bam
+*.bam.bai
+*.sam
+*.depth
+*.fq
+*.fq.gz
+*.fastq
+*.fastq.gz
+
+# 序列文件
+*.fa
+*.fasta
+*.faa
+*.ffn
+*.fna
+*.gff
+*.gff3
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+~$*
