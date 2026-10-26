@@ -7,28 +7,31 @@ A collection of pipeline scripts for **MAG construction** and **antimicrobial pe
 ```
 PigAMP/
 ├── MAG-Generation/
-│   ├── 1.qc-assembly.sh     # QC + host removal + assembly (NGS: MEGAHIT / TGS: Flye --meta)
-│   ├── 2.binning.sh         # read mapping + depth + MetaBAT2 binning
-│   ├── remove-host.pl       # remove host reads
-│   ├── renamefa.pl          # rename contig headers
-│   └── deal_fa.pl           # fasta utility (length stats, etc.)
+│   ├── 1.qc-assembly.sh          # QC + host removal + MEGAHIT assembly
+│   ├── 2.binning.sh              # reads mapping (shared by all binning methods)
+│   ├── 3.binning.metabat2.sh     # binning method 1: MetaBAT2
+│   ├── 4.binning.sembin2.sh      # binning method 2: SemiBin2
+│   ├── 5.binning.vamb.sh         # binning method 3: VAMB
+│   ├── remove-host.pl            # remove host reads
+│   ├── renamefa.pl               # rename contig headers
+│   └── deal_fa.pl                # fasta utility (length stats, etc.)
 └── AMP-Identification/
-    ├── AMP-Identify.pl      # master script: peptide filtering + per-tool job scripts
-    ├── AmPEP-info.pl        # parse AmPEP output
-    ├── APIN-info.pl         # parse APIN output
-    ├── ampir-info.pl        # parse ampir output
-    ├── amplify-info.pl      # parse AMPlify output
-    ├── ampscan-info.pl      # parse AMPscanner-v2 output
-    ├── info-merge.pl        # merge the five tools with score cutoffs
-    ├── work.sh              # demo runner
-    └── demo.list            # example input list
+    ├── AMP-Identify.pl           # master script: peptide filtering + per-tool job scripts
+    ├── AmPEP-info.pl             # parse AmPEP output
+    ├── APIN-info.pl              # parse APIN output
+    ├── ampir-info.pl             # parse ampir output
+    ├── amplify-info.pl           # parse AMPlify output
+    ├── ampscan-info.pl           # parse AMPscanner-v2 output
+    ├── info-merge.pl             # merge the five tools with score cutoffs
+    ├── work.sh                   # demo runner
+    └── demo.list                 # example input list
 ```
 
 ---
 
 ## MAG-Generation
 
-### Complete pipeline (short-read: Illumina)
+### Step 1: QC + host removal + assembly
 
 ```bash
 # 1) QC + host removal + MEGAHIT assembly
@@ -43,29 +46,39 @@ perl remove-host.pl host.sam ID
 megahit -1 clean.1.fq.gz -2 clean.2.fq.gz --min-contig-len 500 -t 40 -o ./
 perl renamefa.pl ./final.contigs.fa contig.ok.fa
 perl deal_fa.pl -format 3 contig.ok.fa | perl -e 'while(<>){chomp;@a=split; if($a[1] > 10000){$a[1]=10000;} print "$a[0]\t$a[1]\n";}' > contig.ok.fa.chrlist
+```
 
-# 2) Binning with MetaBAT2
+### Step 2: reads mapping (shared)
+
+```bash
 bwa index contig.ok.fa
 samtools faidx contig.ok.fa
 bwa mem -k 32 -t 40 -M contig.ok.fa clean.1.fq.gz clean.2.fq.gz \
   | samtools view -bS -@ 8 -t contig.ok.fa.fai - > sample.bam
 samtools sort -@ 8 -m 2G sample.bam sample.sort
 samtools index sample.sort.bam
+```
+
+### Step 3: binning — choose one of three methods
+
+**Method 1: MetaBAT2** (bins: `./sample.*.fa`)
+
+```bash
 metabat/jgi_summarize_bam_contig_depths --outputDepth sample.depth sample.sort.bam
 metabat/metabat2 -t 32 --inFile contig.ok.fa --abdFile sample.depth --outFile ./sample
 ```
 
-### Optional: ONT assembly (not connected to binning)
-
-The script also contains an ONT assembly step:
+**Method 2: SemiBin2** (bins: `semibin/output_bins/*.fa`)
 
 ```bash
-flye --nano-raw ONT-data.fastq.gz --meta -t 80 -o ONT-data
+SemiBin2 single_easy_bin -i contig.ok.fa -b sample.sort.bam -o semibin --environment global
 ```
 
-**Note:** This step is not connected to the binning pipeline in the original RMM repository. The output `flye/assembly.fasta` is not used by `2.binning.sh`, which expects `contig.ok.fa` (from MEGAHIT). To use ONT assembly for MAG construction, you would need to either:
-- Rename `flye/assembly.fasta` to `contig.ok.fa` and run `2.binning.sh`, or
-- Combine ONT contigs with MEGAHIT contigs before binning
+**Method 3: VAMB 4.1.4** (bins: `vamb/bin.*.fa`)
+
+```bash
+VAMB bin contig.ok.fa sample.sort.bam -o vamb
+```
 
 ### Inputs
 
@@ -75,12 +88,11 @@ flye --nano-raw ONT-data.fastq.gz --meta -t 80 -o ONT-data
 | `1.fastq.gz` / `2.fastq.gz` | Paired-end raw reads                             |
 | `adapters.fa`               | Trimmomatic adapter file                         |
 | `host.fa`                   | Host reference genome (pig: Sscrofa11.1)         |
-| `ONT-data.fastq.gz`         | ONT long reads (Method 2)                        |
 
 
 ### Dependencies
 
-Trimmomatic, BWA, SAMtools, MEGAHIT, Flye, MetaBAT2, Perl.
+Trimmomatic, BWA, SAMtools, MEGAHIT, MetaBAT2, SemiBin2, VAMB, Perl.
 
 ---
 

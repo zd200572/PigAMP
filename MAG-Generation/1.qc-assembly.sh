@@ -7,7 +7,3 @@ perl remove-host.pl host.sam ID
 megahit -1 clean.1.fq.gz -2 clean.2.fq.gz --min-contig-len 500 -t 40 -o ./
 perl renamefa.pl ./final.contigs.fa contig.ok.fa
 perl deal_fa.pl -format 3 contig.ok.fa |perl -e 'while(<>){chomp;@a=split; if($a[1] > 10000){$a[1]=10000;} print "$a[0]\t$a[1]\n";}' >contig.ok.fa.chrlist
-
-#TGS assembly
-flye --nano-raw ONT-data.fastq.gz --meta -t 80 -o ONT-data 
-
